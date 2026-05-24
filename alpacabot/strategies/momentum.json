@@ -1,0 +1,27 @@
+{
+  "strategy_id": "momentum",
+  "name": "20 日動能策略",
+  "description": "買入過去 20 天漲幅最大的 10 檔 NASDAQ 股票",
+  "version": "1.0",
+  "rules": {
+    "universe": "NASDAQ_TOP100",
+    "lookback_days": 20,
+    "max_positions": 10,
+    "weight_per_stock": 0.10,
+    "order_type": "market",
+    "fractional_shares": false,
+    "rebalance_triggers": ["monthly_first_day", "new_cash_inflow"],
+    "new_cash_threshold_pct": 0.05,
+    "min_cash_reserve": 0.02
+  },
+  "filters": {
+    "min_price": 10,
+    "min_volume": 500000,
+    "exclude_symbols": []
+  },
+  "risk": {
+    "max_single_loss_pct": 0.20,
+    "stop_loss_enabled": true,
+    "stop_loss_pct": 0.08
+  }
+}

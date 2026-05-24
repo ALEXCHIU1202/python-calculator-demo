@@ -1,0 +1,26 @@
+{
+  "strategy_id": "top10_nasdaq",
+  "name": "NASDAQ 市值前十均等配置",
+  "description": "每天買入 NASDAQ 市值前 10 名股票，各佔帳戶總資金 10%",
+  "version": "1.0",
+  "rules": {
+    "universe": "NASDAQ_TOP10_MARKET_CAP",
+    "max_positions": 10,
+    "weight_per_stock": 0.10,
+    "order_type": "market",
+    "fractional_shares": false,
+    "rebalance_triggers": ["monthly_first_day", "new_cash_inflow"],
+    "new_cash_threshold_pct": 0.05,
+    "min_cash_reserve": 0.02
+  },
+  "filters": {
+    "min_price": 5,
+    "min_volume": 1000000,
+    "exclude_symbols": []
+  },
+  "risk": {
+    "max_single_loss_pct": 0.15,
+    "stop_loss_enabled": false,
+    "stop_loss_pct": 0.08
+  }
+}

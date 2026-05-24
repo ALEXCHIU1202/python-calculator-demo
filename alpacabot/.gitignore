@@ -1,0 +1,7 @@
+accounts/accounts.json
+reports/
+__pycache__/
+*.pyc
+.env
+*.egg-info/
+.venv/

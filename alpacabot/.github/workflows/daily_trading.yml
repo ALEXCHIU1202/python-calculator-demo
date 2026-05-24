@@ -1,0 +1,71 @@
+name: Daily Trading & Report
+
+on:
+  schedule:
+    - cron: '30 13 * * 1-5'   # UTC 13:30 = 美東 09:30 開盤
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'daily=正常 / force=強制再平衡'
+        required: false
+        default: 'daily'
+
+jobs:
+  run-all-accounts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r alpacabot/requirements.txt
+
+      - name: Write accounts config
+        env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
+        run: |
+          mkdir -p alpacabot/accounts
+          echo "$ACCOUNTS_JSON" > alpacabot/accounts/accounts.json
+
+      - name: Run strategy engine (all accounts)
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        working-directory: alpacabot
+        run: python -m core.strategy_engine --mode=${{ github.event.inputs.mode || 'daily' }}
+
+      - name: Generate daily reports
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        working-directory: alpacabot
+        run: python -m report.report_model
+
+      - name: Send email notifications
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        working-directory: alpacabot
+        run: python -m notifications.email_sender
+
+      - name: Upload reports as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-reports-${{ github.run_id }}-${{ github.run_number }}
+          path: alpacabot/reports/
+          retention-days: 90
+
+      - name: Commit reports back to repo
+        if: success()
+        run: |
+          git config user.name  "AlpacaBot"
+          git config user.email "alpacabot@github-actions"
+          git add alpacabot/reports/ || true
+          git diff --staged --quiet || git commit -m "chore: daily report $(date +%Y-%m-%d)"
+          git push || true
