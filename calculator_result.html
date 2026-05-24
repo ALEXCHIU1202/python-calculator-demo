@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python 計算機系統</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #7b2ff7, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #88aacc;
+            font-size: 0.95rem;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+        .stat-card .label {
+            font-size: 0.85rem;
+            color: #88aacc;
+            margin-top: 4px;
+        }
+        .table-wrapper {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(0,212,255,0.15);
+            border-radius: 16px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background: linear-gradient(90deg, rgba(0,212,255,0.15), rgba(123,47,247,0.15));
+        }
+        th {
+            padding: 16px 20px;
+            text-align: left;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #00d4ff;
+            border-bottom: 1px solid rgba(0,212,255,0.2);
+        }
+        td {
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.95rem;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(0,212,255,0.05); }
+        .tag {
+            display: inline-block;
+            background: rgba(123,47,247,0.25);
+            border: 1px solid rgba(123,47,247,0.4);
+            color: #c4a0ff;
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+        }
+        .expr {
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #88ccff;
+            background: rgba(0,0,0,0.25);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .result {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #00ffaa;
+            font-family: 'Consolas', monospace;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #446688;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Python 計算機系統</h1>
+            <p>執行時間：2026-05-24 10:18:21</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value">15</div>
+                <div class="label">總計算數</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">15</div>
+                <div class="label">成功計算</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">0</div>
+                <div class="label">錯誤計算</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>運算類型</th>
+                        <th>表達式</th>
+                        <th>計算結果</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color:#446688">01</td>
+                        <td><span class="tag">基本加法</span></td>
+                        <td><span class="expr">123 + 456</span></td>
+                        <td><span class="result">579</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">02</td>
+                        <td><span class="tag">基本減法</span></td>
+                        <td><span class="expr">1000 - 375</span></td>
+                        <td><span class="result">625</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">03</td>
+                        <td><span class="tag">基本乘法</span></td>
+                        <td><span class="expr">48 * 25</span></td>
+                        <td><span class="result">1200</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">04</td>
+                        <td><span class="tag">基本除法</span></td>
+                        <td><span class="expr">9999 / 7</span></td>
+                        <td><span class="result">1428.4285714285713</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">05</td>
+                        <td><span class="tag">次方運算</span></td>
+                        <td><span class="expr">2 ** 10</span></td>
+                        <td><span class="result">1024</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">06</td>
+                        <td><span class="tag">取餘數</span></td>
+                        <td><span class="expr">100 % 7</span></td>
+                        <td><span class="result">2</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">07</td>
+                        <td><span class="tag">複雜運算</span></td>
+                        <td><span class="expr">(150 + 250) * 3 / 4 - 50</span></td>
+                        <td><span class="result">250.0</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">08</td>
+                        <td><span class="tag">平方根</span></td>
+                        <td><span class="expr">sqrt(144)</span></td>
+                        <td><span class="result">12.0</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">09</td>
+                        <td><span class="tag">圓周率</span></td>
+                        <td><span class="expr">round(pi * 10 ** 2, 4)</span></td>
+                        <td><span class="result">314.1593</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">10</td>
+                        <td><span class="tag">自然對數</span></td>
+                        <td><span class="expr">round(log(math.e ** 5), 6)</span></td>
+                        <td><span class="result">5.0</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">11</td>
+                        <td><span class="tag">三角函數 sin</span></td>
+                        <td><span class="expr">round(sin(pi / 2), 6)</span></td>
+                        <td><span class="result">1.0</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">12</td>
+                        <td><span class="tag">三角函數 cos</span></td>
+                        <td><span class="expr">round(cos(0), 6)</span></td>
+                        <td><span class="result">1.0</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">13</td>
+                        <td><span class="tag">絕對值</span></td>
+                        <td><span class="expr">abs(-999)</span></td>
+                        <td><span class="result">999</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">14</td>
+                        <td><span class="tag">四捨五入</span></td>
+                        <td><span class="expr">round(3.14159265, 3)</span></td>
+                        <td><span class="result">3.142</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:#446688">15</td>
+                        <td><span class="tag">複合計算</span></td>
+                        <td><span class="expr">sqrt(3**2 + 4**2)</span></td>
+                        <td><span class="result">5.0</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>由 Python 3.14.2 計算 · math 模組支援</p>
+        </div>
+    </div>
+</body>
+</html>
