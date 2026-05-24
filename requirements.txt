@@ -1,0 +1,13 @@
+alpaca-py>=0.13.0
+yfinance>=0.2.36
+pandas>=2.0.0
+numpy>=1.24.0
+streamlit>=1.32.0
+plotly>=5.18.0
+jinja2>=3.1.0
+pytest>=7.4.0
+pandas-ta>=0.3.14b
+requests>=2.31.0
+python-dotenv>=1.0.0
+schedule>=1.2.0
+pytz>=2024.1
