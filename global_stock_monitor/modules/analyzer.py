@@ -62,73 +62,21 @@ _INFLUENCER_PROMPT = """\
 {news}
 """
 
-# ── 四大板塊分析 Prompts ──────────────────────────────────────────────────────
+# ── 四大板塊分析（合併單次呼叫，節省時間）──────────────────────────────────
 
-_SECTOR_TECH_PROMPT = """\
-你是一位專注台股科技類股的資深分析師。根據以下昨晚（台灣時間）美股及全球市場新聞，針對科技類股進行深度分析，核心任務是推估對台股科技族群今日開盤的具體影響。
+_COMBINED_SECTORS_PROMPT = """\
+你是一位台灣股市資深分析師。根據以下昨晚美股及全球市場新聞，針對四大板塊分析，核心任務是推估對台股今日開盤的具體影響。
 
-【分析架構】
-一、美股科技板塊整體表現（那斯達克指數、費城半導體指數SOX昨晚走勢方向）
-二、重點個股動態（輝達NVDA、蘋果AAPL、超微AMD、英特爾INTC、台積電ADR等，重點說明漲跌與原因）
-三、對台灣科技股影響推估（台積電2330、聯發科2454、鴻海2317、廣達2382、緯創3231、聯電2303等，預期今日表現方向）
-四、多空方向判斷（明確說明今日台股科技族群偏多或偏空，信心程度高中低）
+請嚴格以下列 JSON 格式回傳，每個板塊約400字繁體中文段落（段落式書寫，不使用條列符號、不使用Markdown語法）：
+{{"tech":"(科技股分析)","traditional":"(傳統產業分析)","biotech":"(生醫科技分析)","finance":"(財經金融分析)"}}
 
-【格式要求】
-- 繁體中文，400～500字
-- 段落式書寫，不使用條列符號「•、-、*」或Markdown語法
-- 分析需具體，避免流於空泛
+各板塊重點：
+- tech（科技股，主要焦點）：那斯達克/費城半導體SOX走勢→輝達/蘋果/AMD重點個股→台積電/聯發科/鴻海/廣達等影響推估，多空判斷
+- traditional（傳統產業）：汽車/化工/鋼鐵/油價走勢→台塑/中鋼/裕隆/和泰車等影響，多空判斷
+- biotech（生醫科技）：XBI/IBB指數/FDA消息→台灣生醫股影響，多空判斷
+- finance（財經金融）：聯準會動態/美元指數/台幣匯率走勢→富邦金/國泰金/玉山金等影響，多空判斷
 
-今日新聞：
-{news}"""
-
-_SECTOR_TRADITIONAL_PROMPT = """\
-你是一位台股傳統產業分析師。根據以下昨晚美股及全球市場新聞，分析傳統產業（汽車、化工、鋼鐵、石化、塑料、紡織等）動態，核心任務是評估對台灣相關傳統產業族群的影響。
-
-【分析架構】
-一、全球傳統產業板塊昨晚整體表現方向
-二、汽車業（電動車、燃油車政策）、化工業、鋼鐵業等重要消息
-三、原物料走勢（國際油價WTI/布蘭特、銅價、鋼鐵價格）對台廠的影響
-四、對台灣傳統產業股影響推估與多空判斷（台塑集團、中鋼、裕隆、和泰車等）
-
-【格式要求】
-- 繁體中文，400～500字
-- 段落式書寫
-- 若相關新聞較少，可結合宏觀環境（匯率、通膨、供應鏈）進行推估
-
-今日新聞：
-{news}
-"""
-
-_SECTOR_BIOTECH_PROMPT = """\
-你是一位台股生醫科技分析師。根據以下昨晚美股及全球市場新聞，分析生醫科技產業動態，核心任務是評估對台灣生醫、醫療器材、製藥類股的影響。
-
-【分析架構】
-一、美股生醫板塊表現（XBI、IBB等生技ETF昨晚走勢）
-二、重要藥廠（輝瑞、莫德納、嬌生等）、醫療器材公司重大消息
-三、重大臨床試驗結果、FDA審查通過/駁回消息
-四、對台灣生醫股影響推估與多空判斷（醫療法規趨勢、台廠受惠機會）
-
-【格式要求】
-- 繁體中文，400～500字
-- 段落式書寫
-- 若生醫新聞較少，可結合整體風險偏好（Risk-on/Risk-off）環境進行評估
-
-今日新聞：
-{news}
-"""
-
-_SECTOR_FINANCE_PROMPT = """\
-你是一位財金市場分析師。根據以下昨晚美股及全球市場新聞，分析財經金融動態（利率政策、匯率、銀行業、保險業、ETF資金流向等），核心任務是評估對台灣金融類股的影響。
-
-【分析架構】
-一、聯準會最新動態與利率預期（FedWatch升降息機率變化、官員發言方向）
-二、美元指數（DXY）走勢與新台幣匯率預估（強弱方向）
-三、美股金融板塊表現（銀行、保險、投行昨晚整體方向）
-四、對台灣金融股影響推估與多空判斷（富邦金2881、國泰金2882、玉山金2884、兆豐金2886等）
-
-【格式要求】
-- 繁體中文，400～500字
-- 段落式書寫
+【重要】只輸出純 JSON，不加任何說明文字，不加 markdown 代碼塊標記（不要```json）
 
 今日新聞：
 {news}
@@ -222,71 +170,56 @@ class Analyzer:
     # ── 結構化日報（Email 使用）──────────────────────────────────────────────
 
     def _generate_daily_report(self, analyzed: List[Dict], stats: Dict) -> Dict:
-        """生成結構化日報 Dict：影響力人物發言 + 四大板塊分析"""
+        """生成結構化日報 Dict：影響力人物發言 + 四大板塊分析（2 次 AI 呼叫）"""
 
-        # 準備新聞摘要文本（取前30篇，影響力最高的）
+        # 準備新聞摘要文本（取前25篇，影響力最高的）
         news_text = '\n\n'.join(
             f"[{i+1}] 標題：{a['title']}\n"
             f"     發言者/機構：{a.get('key_entity', a.get('source', ''))}\n"
-            f"     核心聲明：{a.get('key_statement', a.get('summary', ''))[:200]}\n"
+            f"     核心聲明：{a.get('key_statement', a.get('summary', ''))[:150]}\n"
             f"     情緒：{a.get('sentiment', '')} | 影響分數：{a.get('impact_score', 0)}/10"
-            for i, a in enumerate(analyzed[:30])
+            for i, a in enumerate(analyzed[:25])
         )
 
         result: Dict = {}
 
-        # 1. 影響力人物發言
-        logger.info("  生成影響力人物發言速報…")
+        # ── 第1次呼叫：影響力人物發言 ────────────────────────────────────────
+        logger.info("  [1/2] 生成影響力人物發言速報…")
         try:
-            raw = self.llm.complete(_INFLUENCER_PROMPT.format(news=news_text), max_tokens=800).strip()
+            raw = self.llm.complete(
+                _INFLUENCER_PROMPT.format(news=news_text), max_tokens=600
+            ).strip()
             result['influencers'] = self._parse_influencers(raw)
         except Exception as exc:
             logger.error(f"影響力人物分析失敗: {exc}")
             result['influencers'] = []
-        time.sleep(2)
 
-        # 2. 科技股
-        logger.info("  生成科技股分析…")
-        try:
-            result['tech'] = self.llm.complete(
-                _SECTOR_TECH_PROMPT.format(news=news_text), max_tokens=1200
-            ).strip()
-        except Exception as exc:
-            logger.error(f"科技股分析失敗: {exc}")
-            result['tech'] = '科技股分析暫時無法取得，請查閱附件完整報告。'
-        time.sleep(2)
+        time.sleep(3)
 
-        # 3. 傳統產業
-        logger.info("  生成傳統產業分析…")
+        # ── 第2次呼叫：四大板塊（合併 JSON）─────────────────────────────────
+        logger.info("  [2/2] 生成四大板塊分析（科技/傳產/生醫/財經）…")
         try:
-            result['traditional'] = self.llm.complete(
-                _SECTOR_TRADITIONAL_PROMPT.format(news=news_text), max_tokens=1200
+            raw = self.llm.complete(
+                _COMBINED_SECTORS_PROMPT.format(news=news_text), max_tokens=3500
             ).strip()
+            # 解析 JSON（容忍 markdown 代碼塊標記）
+            start = raw.find('{')
+            end   = raw.rfind('}') + 1
+            if start >= 0 and end > start:
+                sectors = json.loads(raw[start:end])
+            else:
+                raise ValueError("回傳內容中找不到 JSON")
+            result['tech']        = sectors.get('tech',        '科技股分析暫時無法取得。')
+            result['traditional'] = sectors.get('traditional', '傳統產業分析暫時無法取得。')
+            result['biotech']     = sectors.get('biotech',     '生醫科技分析暫時無法取得。')
+            result['finance']     = sectors.get('finance',     '財經金融分析暫時無法取得。')
         except Exception as exc:
-            logger.error(f"傳統產業分析失敗: {exc}")
-            result['traditional'] = '傳統產業分析暫時無法取得，請查閱附件完整報告。'
-        time.sleep(2)
-
-        # 4. 生醫科技
-        logger.info("  生成生醫科技分析…")
-        try:
-            result['biotech'] = self.llm.complete(
-                _SECTOR_BIOTECH_PROMPT.format(news=news_text), max_tokens=1200
-            ).strip()
-        except Exception as exc:
-            logger.error(f"生醫科技分析失敗: {exc}")
-            result['biotech'] = '生醫科技分析暫時無法取得，請查閱附件完整報告。'
-        time.sleep(2)
-
-        # 5. 財經金融
-        logger.info("  生成財經金融分析…")
-        try:
-            result['finance'] = self.llm.complete(
-                _SECTOR_FINANCE_PROMPT.format(news=news_text), max_tokens=1200
-            ).strip()
-        except Exception as exc:
-            logger.error(f"財經金融分析失敗: {exc}")
-            result['finance'] = '財經金融分析暫時無法取得，請查閱附件完整報告。'
+            logger.error(f"四大板塊分析失敗: {exc}")
+            fallback = '分析暫時無法取得，請查閱附件完整報告。'
+            result.setdefault('tech',        fallback)
+            result.setdefault('traditional', fallback)
+            result.setdefault('biotech',     fallback)
+            result.setdefault('finance',     fallback)
 
         return result
 

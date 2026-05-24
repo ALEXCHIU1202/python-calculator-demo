@@ -68,7 +68,7 @@ class LLMClient:
             except Exception as e:
                 err = str(e)
                 if '429' in err or 'quota' in err.lower() or 'rate' in err.lower():
-                    wait = 60 * (attempt + 1)
+                    wait = 30 * (attempt + 1)   # 30s / 60s / 90s
                     logger.warning(f"Gemini 速率限制，等待 {wait}s 後重試…")
                     time.sleep(wait)
                 else:
