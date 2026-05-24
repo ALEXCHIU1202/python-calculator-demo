@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: alpacabot-dashboard
+    runtime: python
+    rootDir: alpacabot
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run dashboard/app.py --server.port $PORT --server.address 0.0.0.0
+    plan: free
+    envVars:
+      - key: ACCOUNTS_JSON
+        sync: false       # 在 Render Dashboard 手動填入
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_SENDER
+        sync: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
