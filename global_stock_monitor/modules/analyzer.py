@@ -62,21 +62,32 @@ _INFLUENCER_PROMPT = """\
 {news}
 """
 
-# ── 四大板塊分析（合併單次呼叫，節省時間）──────────────────────────────────
+# ── 四大板塊分析（合併單次呼叫，分隔符格式）────────────────────────────────
 
 _COMBINED_SECTORS_PROMPT = """\
 你是一位台灣股市資深分析師。根據以下昨晚美股及全球市場新聞，針對四大板塊分析，核心任務是推估對台股今日開盤的具體影響。
 
-請嚴格以下列 JSON 格式回傳，每個板塊約400字繁體中文段落（段落式書寫，不使用條列符號、不使用Markdown語法）：
-{{"tech":"(科技股分析)","traditional":"(傳統產業分析)","biotech":"(生醫科技分析)","finance":"(財經金融分析)"}}
+請依序輸出四個板塊，每個板塊用固定標記包住，格式如下（直接替換括號內的說明文字）：
 
-各板塊重點：
-- tech（科技股，主要焦點）：那斯達克/費城半導體SOX走勢→輝達/蘋果/AMD重點個股→台積電/聯發科/鴻海/廣達等影響推估，多空判斷
-- traditional（傳統產業）：汽車/化工/鋼鐵/油價走勢→台塑/中鋼/裕隆/和泰車等影響，多空判斷
-- biotech（生醫科技）：XBI/IBB指數/FDA消息→台灣生醫股影響，多空判斷
-- finance（財經金融）：聯準會動態/美元指數/台幣匯率走勢→富邦金/國泰金/玉山金等影響，多空判斷
+[TECH]
+（科技股分析，約400字。那斯達克/費城半導體SOX走勢→輝達/蘋果/AMD重點個股→台積電/聯發科/鴻海/廣達等影響推估，明確說明多空方向）
+[/TECH]
 
-【重要】只輸出純 JSON，不加任何說明文字，不加 markdown 代碼塊標記（不要```json）
+[TRADITIONAL]
+（傳統產業分析，約400字。汽車/化工/鋼鐵/油價走勢→台塑/中鋼/裕隆/和泰車等影響，多空判斷）
+[/TRADITIONAL]
+
+[BIOTECH]
+（生醫科技分析，約400字。XBI/IBB指數/FDA消息→台灣生醫股影響，多空判斷）
+[/BIOTECH]
+
+[FINANCE]
+（財經金融分析，約400字。聯準會動態/美元指數/台幣匯率走勢→富邦金/國泰金/玉山金等影響，多空判斷）
+[/FINANCE]
+
+【規則】
+- 繁體中文，段落式書寫，不使用條列符號或Markdown語法
+- 只輸出以上四個區塊，不加任何其他說明文字
 
 今日新聞：
 {news}
@@ -196,19 +207,13 @@ class Analyzer:
 
         time.sleep(3)
 
-        # ── 第2次呼叫：四大板塊（合併 JSON）─────────────────────────────────
+        # ── 第2次呼叫：四大板塊（分隔符格式，比 JSON 更穩定）──────────────────
         logger.info("  [2/2] 生成四大板塊分析（科技/傳產/生醫/財經）…")
         try:
             raw = self.llm.complete(
                 _COMBINED_SECTORS_PROMPT.format(news=news_text), max_tokens=3500
             ).strip()
-            # 解析 JSON（容忍 markdown 代碼塊標記）
-            start = raw.find('{')
-            end   = raw.rfind('}') + 1
-            if start >= 0 and end > start:
-                sectors = json.loads(raw[start:end])
-            else:
-                raise ValueError("回傳內容中找不到 JSON")
+            sectors = self._parse_sectors(raw)
             result['tech']        = sectors.get('tech',        '科技股分析暫時無法取得。')
             result['traditional'] = sectors.get('traditional', '傳統產業分析暫時無法取得。')
             result['biotech']     = sectors.get('biotech',     '生醫科技分析暫時無法取得。')
@@ -248,6 +253,25 @@ class Analyzer:
             elif len(line) > 5:
                 result.append({'person': '', 'statement': line})
         return result[:15]
+
+    def _parse_sectors(self, raw: str) -> Dict:
+        """用分隔符解析四大板塊，比 JSON 更穩定，不怕中文引號或換行"""
+        mapping = {
+            'tech':        ('[TECH]',        '[/TECH]'),
+            'traditional': ('[TRADITIONAL]', '[/TRADITIONAL]'),
+            'biotech':     ('[BIOTECH]',     '[/BIOTECH]'),
+            'finance':     ('[FINANCE]',     '[/FINANCE]'),
+        }
+        result: Dict = {}
+        for key, (start_tag, end_tag) in mapping.items():
+            s = raw.find(start_tag)
+            e = raw.find(end_tag)
+            if s >= 0 and e > s:
+                content = raw[s + len(start_tag): e].strip()
+                result[key] = content if content else ''
+            else:
+                result[key] = ''
+        return result
 
     # ── Stats ─────────────────────────────────────────────────────────────────
 
