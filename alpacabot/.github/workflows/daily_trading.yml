@@ -10,6 +10,9 @@ on:
         required: false
         default: 'daily'
 
+permissions:
+  contents: write   # 允許 commit 報告回 repo
+
 jobs:
   run-all-accounts:
     runs-on: ubuntu-latest
@@ -18,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
@@ -28,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r alpacabot/requirements.txt
 
-      - name: Write accounts config
+      - name: Write accounts config from Secret
         env:
           ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
         run: |
@@ -37,35 +42,40 @@ jobs:
 
       - name: Run strategy engine (all accounts)
         env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         working-directory: alpacabot
         run: python -m core.strategy_engine --mode=${{ github.event.inputs.mode || 'daily' }}
 
       - name: Generate daily reports
         env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         working-directory: alpacabot
         run: python -m report.report_model
 
       - name: Send email notifications
         env:
+          ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_SENDER:   ${{ secrets.EMAIL_SENDER }}
         working-directory: alpacabot
         run: python -m notifications.email_sender
 
-      - name: Upload reports as artifact
+      # ── 報告 commit 回 repo，讓 Dashboard 可讀取 ──────────
+      - name: Commit reports to repo
+        run: |
+          git config user.name  "AlpacaBot[bot]"
+          git config user.email "alpacabot@users.noreply.github.com"
+          git add alpacabot/reports/ || true
+          git diff --staged --quiet || \
+            git commit -m "chore: daily report $(date -u +%Y-%m-%d) [skip ci]"
+          git push
+
+      - name: Upload reports as artifact (backup)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: daily-reports-${{ github.run_id }}-${{ github.run_number }}
+          name: daily-reports-${{ github.run_id }}
           path: alpacabot/reports/
           retention-days: 90
-
-      - name: Commit reports back to repo
-        if: success()
-        run: |
-          git config user.name  "AlpacaBot"
-          git config user.email "alpacabot@github-actions"
-          git add alpacabot/reports/ || true
-          git diff --staged --quiet || git commit -m "chore: daily report $(date +%Y-%m-%d)"
-          git push || true

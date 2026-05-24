@@ -1,6 +1,7 @@
 """
 Phase 1 - Alpaca API 封裝
 支援 Paper & Live 環境，多帳戶
+設定來源：core/config.py（雲端/本機自動切換）
 """
 import json, os
 from alpaca.trading.client import TradingClient
@@ -10,13 +11,19 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockLatestQuoteRequest, StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from datetime import datetime, timedelta
+from pathlib import Path
 import pytz
 
-ACCOUNTS_PATH = os.path.join(os.path.dirname(__file__), "../accounts/accounts.json")
+ACCOUNTS_PATH = Path(__file__).parent.parent / "accounts" / "accounts.json"
 
 def load_accounts():
-    with open(ACCOUNTS_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """優先從 config.py 讀取（雲端相容），fallback 本機檔案"""
+    try:
+        from core.config import load_config
+        return load_config()
+    except Exception:
+        with open(ACCOUNTS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
 
 class AlpacaAccount:
     def __init__(self, config: dict):

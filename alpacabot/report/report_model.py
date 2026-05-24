@@ -4,13 +4,15 @@ Model 與 View 完全分離，Model 只負責產生資料
 """
 import json, os
 from datetime import datetime, date
+from pathlib import Path
 from core.alpaca_client import get_all_accounts, load_accounts
+from core.config import get_reports_dir
 from core.market_data import (
     get_top10_analysis, get_benchmark_returns,
     get_price_history, pct_change, calc_drawdown
 )
 
-REPORTS_DIR = os.path.join(os.path.dirname(__file__), "../reports")
+REPORTS_DIR = str(get_reports_dir())
 DISCLAIMER = "⚠️ 本報告僅供資訊整理與研究參考，不構成投資建議。投資人應自行評估風險。"
 
 def build_report(account_id: str = None, report_date: str = None) -> list[dict]:
@@ -104,9 +106,10 @@ def load_report(account_id: str, report_date: str) -> dict | None:
         return json.load(f)
 
 def list_report_dates() -> list[str]:
-    if not os.path.exists(REPORTS_DIR):
+    reports_dir = get_reports_dir()
+    if not reports_dir.exists():
         return []
-    return sorted(os.listdir(REPORTS_DIR), reverse=True)
+    return sorted([d.name for d in reports_dir.iterdir() if d.is_dir()], reverse=True)
 
 if __name__ == "__main__":
     build_report()

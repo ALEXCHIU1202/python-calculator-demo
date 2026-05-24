@@ -1,4 +1,5 @@
 accounts/accounts.json
+.streamlit/secrets.toml
 reports/
 __pycache__/
 *.pyc
