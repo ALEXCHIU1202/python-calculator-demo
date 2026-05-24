@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全球股市影響力聲明監測｜{{ date }}</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg0: #0d1117; --bg1: #161b22; --bg2: #1c2128;
+      --bd:  #30363d;
+      --t0:  #e6edf3; --t1:  #8b949e;
+      --blue:   #2f81f7; --green: #3fb950;
+      --red:    #f85149; --orange:#f0883e;
+      --yellow: #e3b341; --purple:#bc8cff;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body   { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+             background: var(--bg0); color: var(--t0); line-height: 1.55; font-size: 14px; }
+    a      { color: inherit; text-decoration: none; }
+    a:hover{ color: var(--blue); }
+
+    /* ── Header ── */
+    .hd { background: linear-gradient(135deg,#0d1b2a 0%,#1a2744 60%,#0d1b2a 100%);
+          border-bottom: 1px solid var(--bd); padding: 22px 32px; }
+    .hd-inner { max-width: 1440px; margin: 0 auto;
+                display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .hd h1   { font-size: 22px; font-weight: 700; }
+    .hd h1 span { color: var(--blue); }
+    .hd-sub  { font-size: 12px; color: var(--t1); margin-top: 4px; }
+    .hd-meta { text-align: right; }
+    .hd-date { font-size: 18px; font-weight: 600; }
+    .hd-pow  { font-size: 11px; color: var(--blue); margin-top: 4px; }
+
+    /* ── Ticker bar ── */
+    .ticker { background: var(--bg1); border-bottom: 1px solid var(--bd);
+              padding: 10px 32px; overflow-x: auto; }
+    .ticker-inner { max-width: 1440px; margin: 0 auto;
+                    display: flex; gap: 28px; white-space: nowrap; }
+    .tk   { display: flex; flex-direction: column; min-width: 110px; }
+    .tk-n { font-size: 10px; color: var(--t1); letter-spacing: .5px; text-transform: uppercase; }
+    .tk-p { font-size: 15px; font-weight: 600; }
+    .tk-c { font-size: 12px; font-weight: 500; }
+    .up   { color: var(--green); } .dn { color: var(--red); } .na { color: var(--t1); }
+
+    /* ── Main ── */
+    .main { max-width: 1440px; margin: 0 auto; padding: 24px 32px; }
+
+    /* ── Stat cards ── */
+    .sg { display: grid; grid-template-columns: repeat(auto-fit,minmax(145px,1fr));
+          gap: 14px; margin-bottom: 22px; }
+    .sc { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px;
+          padding: 18px; text-align: center; }
+    .sc-v { font-size: 34px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+    .sc-l { font-size: 11px; color: var(--t1); text-transform: uppercase; letter-spacing: .5px; }
+    .cv-blue{color:var(--blue)} .cv-orange{color:var(--orange)} .cv-red{color:var(--red)}
+    .cv-green{color:var(--green)} .cv-yellow{color:var(--yellow)} .cv-purple{color:var(--purple)}
+
+    /* ── Charts ── */
+    .cg { display: grid; grid-template-columns: 300px 1fr; gap: 14px; margin-bottom: 22px; }
+    .cc { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px; padding: 18px; }
+    .cc h3 { font-size: 11px; color: var(--t1); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 14px; }
+
+    /* ── Section ── */
+    .sec-title { font-size: 17px; font-weight: 600; margin-bottom: 14px;
+                 display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 11px; padding: 2px 10px; border-radius: 100px; font-weight: 600; }
+    .bd-red   { background:rgba(248,81,73,.18);  color:var(--red); }
+    .bd-orange{ background:rgba(240,136,62,.18); color:var(--orange); }
+    .bd-blue  { background:rgba(47,129,247,.18); color:var(--blue); }
+
+    /* ── Alert card ── */
+    .ac { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px;
+          padding: 18px 20px; margin-bottom: 12px; position: relative; overflow: hidden; }
+    .ac::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; border-radius:4px 0 0 4px; }
+    .ac-crit::before{ background:var(--red); }
+    .ac-high::before{ background:var(--orange); }
+    .ac-mid ::before{ background:var(--yellow); }
+
+    .ac-hd { display:flex; justify-content:space-between; align-items:flex-start;
+             gap:12px; margin-bottom:10px; }
+    .ac-title{ font-size:15px; font-weight:600; flex:1; }
+    .ac-title a:hover{ color:var(--blue); }
+
+    .ib { display:inline-flex; align-items:center; gap:5px; padding:4px 12px;
+          border-radius:100px; font-size:13px; font-weight:700; white-space:nowrap; }
+    .ib-9,.ib-10{ background:rgba(248,81,73,.18); color:var(--red); border:1px solid rgba(248,81,73,.3); }
+    .ib-7,.ib-8 { background:rgba(240,136,62,.18); color:var(--orange); border:1px solid rgba(240,136,62,.3); }
+    .ib-5,.ib-6 { background:rgba(227,179,65,.18); color:var(--yellow); border:1px solid rgba(227,179,65,.3); }
+    .ib-lo      { background:rgba(139,148,158,.15);color:var(--t1); border:1px solid rgba(139,148,158,.25); }
+
+    .ac-meta { display:flex; align-items:center; flex-wrap:wrap; gap:12px;
+               font-size:12px; color:var(--t1); margin-bottom:8px; }
+    .ac-entity{ color:var(--blue); font-weight:600; }
+
+    .sp { display:inline-flex; align-items:center; gap:4px; padding:2px 9px;
+          border-radius:100px; font-size:11px; font-weight:600; text-transform:uppercase; }
+    .sp-bull { background:rgba(63,185,80,.18);  color:var(--green); }
+    .sp-bear { background:rgba(248,81,73,.18);  color:var(--red); }
+    .sp-neut { background:rgba(139,148,158,.18);color:var(--t1); }
+
+    .ks { background:rgba(47,129,247,.07); border:1px solid rgba(47,129,247,.2);
+          border-radius:8px; padding:10px 14px; font-size:14px; font-style:italic;
+          color:var(--t0); margin-bottom:8px; }
+
+    .tags { display:flex; flex-wrap:wrap; gap:5px; }
+    .tag  { background:var(--bg1); border:1px solid var(--bd); border-radius:6px;
+            padding:2px 9px; font-size:11px; color:var(--t1); }
+
+    /* ── Outlook ── */
+    .ol { background:linear-gradient(135deg,rgba(47,129,247,.07),rgba(188,140,255,.07));
+          border:1px solid rgba(47,129,247,.3); border-radius:12px;
+          padding:22px 26px; margin-bottom:24px; }
+    .ol h2 { font-size:17px; font-weight:600; color:var(--blue); margin-bottom:14px; }
+    .ol-text{ font-size:14px; line-height:1.85; white-space:pre-wrap; }
+
+    /* ── Table ── */
+    .tbl-wrap { background:var(--bg2); border:1px solid var(--bd); border-radius:12px; overflow:hidden; }
+    table.tbl { width:100%; border-collapse:collapse; font-size:13px; }
+    table.tbl th { background:var(--bg1); padding:9px 14px; text-align:left;
+                   font-size:10px; text-transform:uppercase; letter-spacing:.5px;
+                   color:var(--t1); border-bottom:1px solid var(--bd); white-space:nowrap; }
+    table.tbl td { padding:11px 14px; border-bottom:1px solid rgba(48,54,61,.5); vertical-align:top; }
+    table.tbl tr:last-child td { border-bottom:none; }
+    table.tbl tr:hover td { background:rgba(255,255,255,.02); }
+    .td-sub { color:var(--t1); font-size:11px; margin-top:3px; }
+    .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; display:inline-block; }
+
+    /* ── Footer ── */
+    footer { border-top:1px solid var(--bd); padding:18px 32px; text-align:center;
+             color:var(--t1); font-size:11px; margin-top:28px; }
+
+    @media(max-width:900px){
+      .hd,.main,.ticker{ padding-left:16px; padding-right:16px; }
+      .hd-inner{ flex-direction:column; }
+      .cg{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────────────────── -->
+<div class="hd">
+  <div class="hd-inner">
+    <div>
+      <h1>📊 全球股市 <span>影響力聲明</span> 監測報告</h1>
+      <div class="hd-sub">Global Stock Market Statement Intelligence Report</div>
+    </div>
+    <div class="hd-meta">
+      <div class="hd-date">{{ date }}（週{{ weekday }}）</div>
+      <div style="font-size:12px;color:var(--t1);">更新時間：{{ time }}</div>
+      <div class="hd-pow">⚡ Powered by Claude AI</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Market Ticker ────────────────────────────────────────────────────────── -->
+<div class="ticker">
+  <div class="ticker-inner">
+    {% for m in market_data %}
+    <div class="tk">
+      <span class="tk-n">{{ m.region }} · {{ m.name }}</span>
+      {% if m.price is not none %}
+        <span class="tk-p">{{ '{:,.2f}'.format(m.price) }}</span>
+        <span class="tk-c {{ 'up' if m.up else 'dn' }}">
+          {{ '▲' if m.up else '▼' }} {{ '{:+.2f}'.format(m.change_pct) }}%
+        </span>
+      {% else %}
+        <span class="tk-p na">N/A</span>
+        <span class="tk-c na">──</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ─── Main ─────────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Stats -->
+  <div class="sg">
+    <div class="sc"><div class="sc-v cv-blue">{{ stats.total }}</div><div class="sc-l">分析文章數</div></div>
+    <div class="sc"><div class="sc-v cv-orange">{{ stats.market_moving }}</div><div class="sc-l">市場影響事件</div></div>
+    <div class="sc"><div class="sc-v cv-red">{{ stats.high_impact }}</div><div class="sc-l">高影響 (7+)</div></div>
+    <div class="sc"><div class="sc-v cv-green">{{ stats.bullish }}</div><div class="sc-l">多頭訊號</div></div>
+    <div class="sc"><div class="sc-v cv-red" style="color:var(--red)">{{ stats.bearish }}</div><div class="sc-l">空頭訊號</div></div>
+    <div class="sc"><div class="sc-v cv-yellow">{{ stats.avg_impact }}</div><div class="sc-l">平均影響分數</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="cg">
+    <div class="cc">
+      <h3>情緒分布</h3>
+      <canvas id="cSentiment"></canvas>
+    </div>
+    <div class="cc">
+      <h3>影響分數分布 (1–10)</h3>
+      <canvas id="cImpact" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- ─ High Impact Alerts ─ -->
+  {% if high_impact %}
+  <div style="margin-bottom:24px;">
+    <div class="sec-title">
+      🚨 高影響力聲明
+      <span class="badge bd-red">{{ high_impact|length }} 件</span>
+    </div>
+
+    {% for a in high_impact %}
+    {% set s = a.impact_score | int %}
+    <div class="ac {% if s >= 9 %}ac-crit{% elif s >= 7 %}ac-high{% else %}ac-mid{% endif %}">
+      <div class="ac-hd">
+        <div class="ac-title">
+          {% if a.link %}<a href="{{ a.link }}" target="_blank">{{ a.title }}</a>
+          {% else %}{{ a.title }}{% endif %}
+        </div>
+        <div class="ib ib-{{ [s, 10]|min }}">⚡ {{ s }}/10</div>
+      </div>
+
+      <div class="ac-meta">
+        <span class="ac-entity">{{ a.key_entity }}</span>
+        <span class="sp {% if a.sentiment=='bullish' %}sp-bull{% elif a.sentiment=='bearish' %}sp-bear{% else %}sp-neut{% endif %}">
+          {% if a.sentiment=='bullish' %}📈 多頭{% elif a.sentiment=='bearish' %}📉 空頭{% else %}➡️ 中性{% endif %}
+        </span>
+        <span>{{ a.source }}</span>
+        {% if a.reason %}<span style="color:var(--t1);">{{ a.reason }}</span>{% endif %}
+      </div>
+
+      {% if a.key_statement %}
+      <div class="ks">"{{ a.key_statement }}"</div>
+      {% endif %}
+
+      {% if a.affected_markets %}
+      <div class="tags">
+        {% for m in a.affected_markets %}<span class="tag">{{ m }}</span>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ─ Market Outlook ─ -->
+  <div class="ol">
+    <h2>🔮 今日市場展望 — Claude AI 分析</h2>
+    <div class="ol-text">{{ market_outlook }}</div>
+  </div>
+
+  <!-- ─ All market-moving articles ─ -->
+  {% if market_moving %}
+  <div style="margin-bottom:24px;">
+    <div class="sec-title">
+      📋 所有市場影響事件
+      <span class="badge bd-orange">{{ market_moving|length }} 件</span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>分數</th>
+            <th>標題 / 核心聲明</th>
+            <th>關鍵實體</th>
+            <th>情緒</th>
+            <th>受影響市場</th>
+            <th>來源</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in market_moving %}
+          {% set s = a.impact_score | int %}
+          <tr>
+            <td>
+              <span style="display:inline-flex;align-items:center;gap:6px;">
+                <span class="dot" style="background:
+                  {%- if s>=8 %}var(--red)
+                  {%- elif s>=6 %}var(--orange)
+                  {%- elif s>=4 %}var(--yellow)
+                  {%- else %}var(--green){% endif %};"></span>
+                <strong>{{ s }}/10</strong>
+              </span>
+            </td>
+            <td style="max-width:360px;">
+              {% if a.link %}<a href="{{ a.link }}" target="_blank">{{ a.title }}</a>
+              {% else %}{{ a.title }}{% endif %}
+              {% if a.key_statement %}
+              <div class="td-sub">{{ a.key_statement[:120] }}{% if a.key_statement|length > 120 %}…{% endif %}</div>
+              {% endif %}
+            </td>
+            <td style="color:var(--blue);white-space:nowrap;">{{ a.key_entity }}</td>
+            <td>
+              <span class="sp {% if a.sentiment=='bullish' %}sp-bull{% elif a.sentiment=='bearish' %}sp-bear{% else %}sp-neut{% endif %}">
+                {% if a.sentiment=='bullish' %}📈 多頭{% elif a.sentiment=='bearish' %}📉 空頭{% else %}➡️ 中性{% endif %}
+              </span>
+            </td>
+            <td>
+              <div class="tags">
+                {% for m in a.affected_markets[:4] %}<span class="tag">{{ m }}</span>{% endfor %}
+              </div>
+            </td>
+            <td style="color:var(--t1);white-space:nowrap;">{{ a.source }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ─ Non-market-moving (collapsed) ─ -->
+  {% set others = articles | selectattr('is_market_moving', 'equalto', false) | list %}
+  {% if others %}
+  <details style="margin-bottom:24px;">
+    <summary style="cursor:pointer;font-size:15px;font-weight:600;color:var(--t1);
+                    list-style:none;display:flex;align-items:center;gap:8px;padding:4px 0;">
+      ℹ️ 一般資訊文章
+      <span class="badge bd-blue">{{ others|length }} 件</span>
+    </summary>
+    <div class="tbl-wrap" style="margin-top:10px;">
+      <table class="tbl">
+        <thead><tr><th>標題</th><th>來源</th><th>分數</th></tr></thead>
+        <tbody>
+          {% for a in others %}
+          <tr>
+            <td>{% if a.link %}<a href="{{ a.link }}" target="_blank">{{ a.title }}</a>{% else %}{{ a.title }}{% endif %}</td>
+            <td style="color:var(--t1);white-space:nowrap;">{{ a.source }}</td>
+            <td style="color:var(--t1);">{{ a.impact_score | int }}/10</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+
+</div><!-- /main -->
+
+<footer>
+  <p>本報告由 Claude AI 自動生成，僅供參考，不構成任何投資建議。</p>
+  <p style="margin-top:4px;">Generated {{ date }} {{ time }} · Global Stock Market Statement Intelligence Monitor</p>
+</footer>
+
+<script>
+(function(){
+  const COLORS = {
+    blue:'rgba(47,129,247,', green:'rgba(63,185,80,', red:'rgba(248,81,73,',
+    orange:'rgba(240,136,62,', yellow:'rgba(227,179,65,', gray:'rgba(139,148,158,'
+  };
+  const t1 = '#8b949e', grid = 'rgba(48,54,61,.5)';
+
+  // Sentiment doughnut
+  const sc = document.getElementById('cSentiment');
+  if(sc) new Chart(sc, {
+    type:'doughnut',
+    data:{
+      labels:['多頭 Bullish','空頭 Bearish','中性 Neutral'],
+      datasets:[{
+        data:[{{ stats.bullish }},{{ stats.bearish }},{{ stats.neutral }}],
+        backgroundColor:[COLORS.green+'0.8)',COLORS.red+'0.8)',COLORS.gray+'0.8)'],
+        borderColor:[COLORS.green+'1)',COLORS.red+'1)',COLORS.gray+'1)'],
+        borderWidth:2, hoverOffset:6
+      }]
+    },
+    options:{
+      responsive:true, cutout:'65%',
+      plugins:{
+        legend:{position:'bottom',labels:{color:t1,padding:12,font:{size:12}}},
+        tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.parsed}}
+      }
+    }
+  });
+
+  // Impact bar chart
+  const ic = document.getElementById('cImpact');
+  if(ic){
+    const articles = {{ articles_json | safe }};
+    const counts = Array(10).fill(0);
+    articles.forEach(a=>{ const s=Math.min(Math.max(Math.floor(a.impact_score||1),1),10); counts[s-1]++; });
+    const bgColors = counts.map((_,i)=>{
+      if(i>=8) return COLORS.red+'0.85)';
+      if(i>=6) return COLORS.orange+'0.85)';
+      if(i>=4) return COLORS.yellow+'0.85)';
+      return COLORS.green+'0.85)';
+    });
+    new Chart(ic,{
+      type:'bar',
+      data:{
+        labels:['1','2','3','4','5','6','7','8','9','10'],
+        datasets:[{label:'文章數',data:counts,backgroundColor:bgColors,borderRadius:5,borderSkipped:false}]
+      },
+      options:{
+        responsive:true,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.y+' 篇'}}},
+        scales:{
+          x:{title:{display:true,text:'影響分數',color:t1},ticks:{color:t1},grid:{color:grid}},
+          y:{ticks:{color:t1,stepSize:1},grid:{color:grid}}
+        }
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
