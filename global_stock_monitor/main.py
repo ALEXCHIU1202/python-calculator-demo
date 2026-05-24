@@ -34,8 +34,8 @@ def setup_logging(log_dir: Path) -> None:
 
 def validate_config(cfg: Config) -> bool:
     errors = []
-    if not cfg.ANTHROPIC_API_KEY:
-        errors.append("ANTHROPIC_API_KEY 未設定")
+    if not cfg.GEMINI_API_KEY and not cfg.ANTHROPIC_API_KEY:
+        errors.append("未設定任何 AI API Key（GEMINI_API_KEY 或 ANTHROPIC_API_KEY）")
     if not cfg.EMAIL_SENDER:
         errors.append("EMAIL_SENDER 未設定")
     if not cfg.EMAIL_PASSWORD:

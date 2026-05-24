@@ -30,8 +30,8 @@ def main() -> None:
     )
     logger = logging.getLogger('run_once')
 
-    if not cfg.ANTHROPIC_API_KEY:
-        logger.error("ANTHROPIC_API_KEY 未設定，請確認 .env 檔案")
+    if not cfg.GEMINI_API_KEY and not cfg.ANTHROPIC_API_KEY:
+        logger.error("未設定任何 AI API Key（GEMINI_API_KEY 或 ANTHROPIC_API_KEY），請確認設定")
         sys.exit(1)
 
     logger.info("=== 單次執行啟動 ===")
