@@ -91,13 +91,13 @@ class Analyzer:
     def analyze(self, articles: List[Dict]) -> Dict:
         logger.info(f"開始分析 {len(articles)} 篇文章…")
         analyzed: List[Dict] = []
-        batch_size = 10
+        batch_size = 20  # 每批20篇，減少AI呼叫次數（原本10篇/批）
 
         for i in range(0, len(articles), batch_size):
             batch = articles[i: i + batch_size]
             analyzed.extend(self._analyze_batch(batch))
             if i + batch_size < len(articles):
-                time.sleep(1)
+                time.sleep(2)
 
         # Sort by impact descending
         analyzed.sort(key=lambda x: x.get('impact_score', 0), reverse=True)

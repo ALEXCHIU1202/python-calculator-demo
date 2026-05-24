@@ -22,7 +22,7 @@ jobs:
       EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
       EMAIL_SMTP_HOST: "smtp.gmail.com"
       EMAIL_SMTP_PORT: "587"
-      MAX_NEWS_ITEMS: "80"
+      MAX_NEWS_ITEMS: "40"
       DAILY_RUN_TIME: "08:00"
 
     steps:
