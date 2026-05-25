@@ -62,34 +62,30 @@ _INFLUENCER_PROMPT = """\
 {news}
 """
 
-# ── 四大板塊分析（合併單次呼叫，分隔符格式）────────────────────────────────
+# ── 四大板塊分析（合併單次呼叫）────────────────────────────────────────────
 
 _COMBINED_SECTORS_PROMPT = """\
-你是一位台灣股市資深分析師。根據以下昨晚美股及全球市場新聞，針對四大板塊分析，核心任務是推估對台股今日開盤的具體影響。
+你是一位台灣股市資深分析師。請根據下方新聞，依序完成四段繁體中文分析（每段約300字，段落式書寫，不用條列符號）。
 
-請依序輸出四個板塊，每個板塊用固定標記包住，格式如下（直接替換括號內的說明文字）：
+每段必須以下列標記開頭和結尾，不可省略：
 
-[TECH]
-（科技股分析，約400字。那斯達克/費城半導體SOX走勢→輝達/蘋果/AMD重點個股→台積電/聯發科/鴻海/廣達等影響推估，明確說明多空方向）
-[/TECH]
+<<<TECH_START>>>
+在此填入科技股分析：那斯達克/費城半導體SOX昨晚走勢、輝達/蘋果/AMD等重點個股、台積電/聯發科/鴻海/廣達今日預期表現，最後說明多頭或空頭。
+<<<TECH_END>>>
 
-[TRADITIONAL]
-（傳統產業分析，約400字。汽車/化工/鋼鐵/油價走勢→台塑/中鋼/裕隆/和泰車等影響，多空判斷）
-[/TRADITIONAL]
+<<<TRADITIONAL_START>>>
+在此填入傳統產業分析：汽車/化工/鋼鐵/油價走勢、台塑/中鋼/裕隆/和泰車等影響，多空判斷。
+<<<TRADITIONAL_END>>>
 
-[BIOTECH]
-（生醫科技分析，約400字。XBI/IBB指數/FDA消息→台灣生醫股影響，多空判斷）
-[/BIOTECH]
+<<<BIOTECH_START>>>
+在此填入生醫科技分析：XBI/IBB指數、重要FDA消息、台灣生醫股影響，多空判斷。
+<<<BIOTECH_END>>>
 
-[FINANCE]
-（財經金融分析，約400字。聯準會動態/美元指數/台幣匯率走勢→富邦金/國泰金/玉山金等影響，多空判斷）
-[/FINANCE]
+<<<FINANCE_START>>>
+在此填入財經金融分析：聯準會動態/美元指數/台幣匯率走勢、富邦金/國泰金/玉山金影響，多空判斷。
+<<<FINANCE_END>>>
 
-【規則】
-- 繁體中文，段落式書寫，不使用條列符號或Markdown語法
-- 只輸出以上四個區塊，不加任何其他說明文字
-
-今日新聞：
+新聞資料：
 {news}
 """
 
@@ -261,13 +257,13 @@ class Analyzer:
         return result[:15]
 
     def _parse_sectors(self, raw: str) -> Dict:
-        """用分隔符解析四大板塊，支援大小寫，比 JSON 更穩定"""
-        raw_upper = raw.upper()  # 大小寫不敏感搜尋
+        """用 <<<TAG_START>>> / <<<TAG_END>>> 分隔符解析四大板塊"""
+        raw_upper = raw.upper()
         mapping = {
-            'tech':        ('[TECH]',        '[/TECH]'),
-            'traditional': ('[TRADITIONAL]', '[/TRADITIONAL]'),
-            'biotech':     ('[BIOTECH]',     '[/BIOTECH]'),
-            'finance':     ('[FINANCE]',     '[/FINANCE]'),
+            'tech':        ('<<<TECH_START>>>',        '<<<TECH_END>>>'),
+            'traditional': ('<<<TRADITIONAL_START>>>', '<<<TRADITIONAL_END>>>'),
+            'biotech':     ('<<<BIOTECH_START>>>',     '<<<BIOTECH_END>>>'),
+            'finance':     ('<<<FINANCE_START>>>',     '<<<FINANCE_END>>>'),
         }
         result: Dict = {}
         for key, (start_tag, end_tag) in mapping.items():
