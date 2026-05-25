@@ -197,9 +197,10 @@ class Analyzer:
         # ── 第1次呼叫：影響力人物發言 ────────────────────────────────────────
         logger.info("  [1/2] 生成影響力人物發言速報…")
         try:
-            raw = self.llm.complete(
-                _INFLUENCER_PROMPT.format(news=news_text), max_tokens=600
-            ).strip()
+            # 用 replace 替換，避免新聞文字含 { } 導致 .format() 爆錯
+            prompt1 = _INFLUENCER_PROMPT.replace('{news}', news_text)
+            raw = self.llm.complete(prompt1, max_tokens=600).strip()
+            logger.info(f"  影響人物回傳片段: {raw[:100]!r}")
             result['influencers'] = self._parse_influencers(raw)
         except Exception as exc:
             logger.error(f"影響力人物分析失敗: {exc}")
@@ -210,14 +211,19 @@ class Analyzer:
         # ── 第2次呼叫：四大板塊（分隔符格式，比 JSON 更穩定）──────────────────
         logger.info("  [2/2] 生成四大板塊分析（科技/傳產/生醫/財經）…")
         try:
-            raw = self.llm.complete(
-                _COMBINED_SECTORS_PROMPT.format(news=news_text), max_tokens=3500
-            ).strip()
+            # 用 replace 替換，避免新聞文字含 { } 導致 .format() 爆錯
+            prompt2 = _COMBINED_SECTORS_PROMPT.replace('{news}', news_text)
+            raw = self.llm.complete(prompt2, max_tokens=3500).strip()
+            logger.info(f"  板塊分析回傳片段: {raw[:200]!r}")
             sectors = self._parse_sectors(raw)
-            result['tech']        = sectors.get('tech',        '科技股分析暫時無法取得。')
-            result['traditional'] = sectors.get('traditional', '傳統產業分析暫時無法取得。')
-            result['biotech']     = sectors.get('biotech',     '生醫科技分析暫時無法取得。')
-            result['finance']     = sectors.get('finance',     '財經金融分析暫時無法取得。')
+            logger.info(f"  解析結果 tech={len(sectors.get('tech',''))}字, "
+                        f"traditional={len(sectors.get('traditional',''))}字, "
+                        f"biotech={len(sectors.get('biotech',''))}字, "
+                        f"finance={len(sectors.get('finance',''))}字")
+            result['tech']        = sectors.get('tech')        or '科技股分析暫時無法取得。'
+            result['traditional'] = sectors.get('traditional') or '傳統產業分析暫時無法取得。'
+            result['biotech']     = sectors.get('biotech')     or '生醫科技分析暫時無法取得。'
+            result['finance']     = sectors.get('finance')     or '財經金融分析暫時無法取得。'
         except Exception as exc:
             logger.error(f"四大板塊分析失敗: {exc}")
             fallback = '分析暫時無法取得，請查閱附件完整報告。'
@@ -255,7 +261,8 @@ class Analyzer:
         return result[:15]
 
     def _parse_sectors(self, raw: str) -> Dict:
-        """用分隔符解析四大板塊，比 JSON 更穩定，不怕中文引號或換行"""
+        """用分隔符解析四大板塊，支援大小寫，比 JSON 更穩定"""
+        raw_upper = raw.upper()  # 大小寫不敏感搜尋
         mapping = {
             'tech':        ('[TECH]',        '[/TECH]'),
             'traditional': ('[TRADITIONAL]', '[/TRADITIONAL]'),
@@ -264,8 +271,8 @@ class Analyzer:
         }
         result: Dict = {}
         for key, (start_tag, end_tag) in mapping.items():
-            s = raw.find(start_tag)
-            e = raw.find(end_tag)
+            s = raw_upper.find(start_tag)
+            e = raw_upper.find(end_tag)
             if s >= 0 and e > s:
                 content = raw[s + len(start_tag): e].strip()
                 result[key] = content if content else ''
