@@ -16,7 +16,7 @@ jobs:
     # 直接把 Secrets 注入為環境變數，config.py 用 os.getenv 讀取
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL: "models/gemini-2.5-flash"
+      GEMINI_MODEL: "models/gemini-1.5-flash"
       EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
       EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
       EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}

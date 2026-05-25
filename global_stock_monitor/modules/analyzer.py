@@ -104,7 +104,7 @@ class Analyzer:
             batch = articles[i: i + batch_size]
             analyzed.extend(self._analyze_batch(batch))
             if i + batch_size < len(articles):
-                time.sleep(2)
+                time.sleep(5)  # gemini-1.5-flash: 15 RPM，每5秒1次安全
 
         # Sort by impact descending
         analyzed.sort(key=lambda x: x.get('impact_score', 0), reverse=True)
