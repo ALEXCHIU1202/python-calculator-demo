@@ -25,9 +25,13 @@ class Config:
     MAX_NEWS_ITEMS = int(os.getenv('MAX_NEWS_ITEMS', '80'))
     ANALYSIS_MODEL = 'claude-opus-4-7'
 
-    # Google Gemini（免費方案，優先使用）
+    # Groq（免費，優先使用，速度快、無 IP 限制）
+    GROQ_API_KEY   = os.getenv('GROQ_API_KEY', '')
+    GROQ_MODEL     = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+
+    # Google Gemini（備用免費方案）
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-    GEMINI_MODEL   = os.getenv('GEMINI_MODEL', 'models/gemini-2.5-flash')
+    GEMINI_MODEL   = os.getenv('GEMINI_MODEL', 'models/gemini-1.5-flash')
 
     RSS_FEEDS = [
         {'name': 'Reuters Business',   'url': 'https://feeds.reuters.com/reuters/businessNews',              'category': 'general'},
