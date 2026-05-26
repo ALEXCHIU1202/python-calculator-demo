@@ -48,18 +48,43 @@ Key statements today:
 # ── 影響力人物發言 Prompt ────────────────────────────────────────────────────
 
 _INFLUENCER_PROMPT = """\
-你是一位資深財經分析師。請從以下新聞中，找出所有具有股市影響力的重要人物發言或決策行動（包含：政治領袖如川普、副總統、聯準會官員、各國央行首長、知名科技CEO如黃仁勳、庫克、馬斯克、重要投資人如巴菲特等）。
+你是一位資深財經分析師兼台灣股市專家。請從以下新聞中，找出所有具有股市影響力的重要人物發言或決策行動（包含：政治領袖如川普、副總統、聯準會官員、各國央行首長、知名科技CEO如黃仁勳、庫克、馬斯克、重要投資人如巴菲特等）。
 
-【輸出格式】每行一則，格式為：
-人名｜發言或行動摘要（30字以內，直接說重點）
+【輸出格式】每行一則，三個欄位用｜分隔：
+人名｜發言或行動摘要（20字以內）｜對台股影響預測（35字以內，說明影響哪些台灣類股或個股、多空方向）
 
 【規則】
 - 只列真正影響市場的重大發言，排除無關緊要的雜訊
-- 最多 15 則，按影響力由高到低排列
+- 最多 12 則，按影響力由高到低排列
 - 只輸出條列清單，不加標題、編號或任何說明文字
 
 今日新聞：
 {news}
+"""
+
+# ── 台股 K 線分析 Prompt ──────────────────────────────────────────────────────
+
+_TAIWAN_STOCKS_PROMPT = """\
+你是一位台股技術分析師。請根據以下台股加權指數與前十大科技股的近期數據，進行分析並預測今日走勢。
+
+請依序輸出三個區塊：
+
+<<<TAIWAN_INDEX_START>>>
+（前一日台股整體表現：加權指數漲跌幅、成交量、整體市場情緒判斷，約100字）
+<<<TAIWAN_INDEX_END>>>
+
+<<<TAIWAN_TOP10_START>>>
+（前十大科技股K線分析：逐一說明各股昨日漲跌、均線多空排列、RSI強弱，點出強勢股與弱勢股，約350字）
+<<<TAIWAN_TOP10_END>>>
+
+<<<TAIWAN_PREDICTION_START>>>
+（今日科技股走勢預測：根據昨日K線型態預測今日整體方向，明確點出最看好個股與需注意個股，約150字）
+<<<TAIWAN_PREDICTION_END>>>
+
+【格式要求】繁體中文，段落式書寫
+
+台股數據如下：
+{taiwan_data}
 """
 
 # ── 四大板塊分析（合併單次呼叫）────────────────────────────────────────────
@@ -88,6 +113,21 @@ _COMBINED_SECTORS_PROMPT = """\
 新聞資料：
 {news}
 """
+
+
+# 台灣前十大科技股
+_TAIWAN_TECH_STOCKS = [
+    ('2330.TW', '台積電'),
+    ('2454.TW', '聯發科'),
+    ('2317.TW', '鴻海'),
+    ('2382.TW', '廣達'),
+    ('3711.TW', '日月光投控'),
+    ('2308.TW', '台達電'),
+    ('2303.TW', '聯電'),
+    ('3034.TW', '聯詠'),
+    ('2379.TW', '瑞昱'),
+    ('2357.TW', '華碩'),
+]
 
 
 class Analyzer:
@@ -177,7 +217,7 @@ class Analyzer:
     # ── 結構化日報（Email 使用）──────────────────────────────────────────────
 
     def _generate_daily_report(self, analyzed: List[Dict], stats: Dict) -> Dict:
-        """生成結構化日報 Dict：影響力人物發言 + 四大板塊分析（2 次 AI 呼叫）"""
+        """生成結構化日報 Dict：影響力人物發言 + 四大板塊分析 + 台股K線分析（3 次 AI 呼叫）"""
 
         # 準備新聞摘要文本（取前25篇，影響力最高的）
         news_text = '\n\n'.join(
@@ -191,7 +231,7 @@ class Analyzer:
         result: Dict = {}
 
         # ── 第1次呼叫：影響力人物發言 ────────────────────────────────────────
-        logger.info("  [1/2] 生成影響力人物發言速報…")
+        logger.info("  [1/3] 生成影響力人物發言速報…")
         try:
             # 用 replace 替換，避免新聞文字含 { } 導致 .format() 爆錯
             prompt1 = _INFLUENCER_PROMPT.replace('{news}', news_text)
@@ -205,7 +245,7 @@ class Analyzer:
         time.sleep(3)
 
         # ── 第2次呼叫：四大板塊（分隔符格式，比 JSON 更穩定）──────────────────
-        logger.info("  [2/2] 生成四大板塊分析（科技/傳產/生醫/財經）…")
+        logger.info("  [2/3] 生成四大板塊分析（科技/傳產/生醫/財經）…")
         try:
             # 用 replace 替換，避免新聞文字含 { } 導致 .format() 爆錯
             prompt2 = _COMBINED_SECTORS_PROMPT.replace('{news}', news_text)
@@ -228,33 +268,125 @@ class Analyzer:
             result.setdefault('biotech',     fallback)
             result.setdefault('finance',     fallback)
 
+        time.sleep(3)
+
+        # ── 第3次呼叫：台股 K 線分析 ─────────────────────────────────────────
+        logger.info("  [3/3] 生成台股 K 線分析…")
+        try:
+            taiwan_data = self._fetch_taiwan_stock_data()
+            logger.info(f"  台股數據長度: {len(taiwan_data)} 字元")
+            prompt3 = _TAIWAN_STOCKS_PROMPT.replace('{taiwan_data}', taiwan_data)
+            raw = self.llm.complete(prompt3, max_tokens=1500).strip()
+            logger.info(f"  台股分析回傳片段: {raw[:200]!r}")
+            result['taiwan_stocks'] = self._parse_taiwan(raw)
+        except Exception as exc:
+            logger.error(f"台股分析失敗: {exc}")
+            result['taiwan_stocks'] = {'index_summary': '', 'top10_analysis': '', 'prediction': ''}
+
         return result
 
     def _parse_influencers(self, raw: str) -> List[Dict]:
-        """解析影響力人物發言，格式：人名｜發言摘要"""
+        """解析影響力人物發言，格式：人名｜發言摘要｜台股影響"""
         result = []
         for line in raw.split('\n'):
             line = line.strip().lstrip('•-·*·0123456789. 　')
             if not line:
                 continue
-            # 嘗試全形直線 ｜
-            if '｜' in line:
-                parts = line.split('｜', 1)
-                result.append({'person': parts[0].strip(), 'statement': parts[1].strip()})
-            # 嘗試半形直線 |
-            elif '|' in line:
-                parts = line.split('|', 1)
-                result.append({'person': parts[0].strip(), 'statement': parts[1].strip()})
-            # 嘗試冒號格式 「人名：發言」
+            sep = '｜' if '｜' in line else ('|' if '|' in line else None)
+            if sep:
+                parts = [p.strip() for p in line.split(sep)]
+                result.append({
+                    'person':        parts[0] if len(parts) > 0 else '',
+                    'statement':     parts[1] if len(parts) > 1 else line,
+                    'taiwan_impact': parts[2] if len(parts) > 2 else '',
+                })
             elif '：' in line:
                 parts = line.split('：', 1)
-                if len(parts[0]) <= 15:  # 人名不應太長
-                    result.append({'person': parts[0].strip(), 'statement': parts[1].strip()})
+                if len(parts[0]) <= 15:
+                    result.append({'person': parts[0].strip(), 'statement': parts[1].strip(), 'taiwan_impact': ''})
                 else:
-                    result.append({'person': '', 'statement': line})
+                    result.append({'person': '', 'statement': line, 'taiwan_impact': ''})
             elif len(line) > 5:
-                result.append({'person': '', 'statement': line})
-        return result[:15]
+                result.append({'person': '', 'statement': line, 'taiwan_impact': ''})
+        return result[:12]
+
+    def _fetch_taiwan_stock_data(self) -> str:
+        """用 yfinance 抓取台股加權指數與前十大科技股 K 線數據"""
+        import yfinance as yf
+        lines = []
+
+        # 台股加權指數
+        try:
+            hist = yf.Ticker('^TWII').history(period='5d')
+            if not hist.empty and len(hist) >= 2:
+                last, prev = hist.iloc[-1], hist.iloc[-2]
+                chg = (last['Close'] - prev['Close']) / prev['Close'] * 100
+                lines += [
+                    '■ 台股加權指數（前一交易日）',
+                    f'  收盤 {last["Close"]:.0f} 點（{chg:+.2f}%）'
+                    f'  最高 {last["High"]:.0f}｜最低 {last["Low"]:.0f}',
+                    f'  成交量 {last["Volume"]:,.0f}',
+                    '',
+                ]
+        except Exception as e:
+            logger.warning(f'台股指數數據失敗: {e}')
+            lines += ['台股加權指數數據暫時無法取得', '']
+
+        lines.append('■ 前十大科技股近期 K 線數據')
+        for ticker, name in _TAIWAN_TECH_STOCKS:
+            try:
+                hist = yf.Ticker(ticker).history(period='30d')
+                if hist.empty or len(hist) < 5:
+                    continue
+                close = hist['Close'].dropna()
+                last  = hist.iloc[-1]
+                prev  = hist.iloc[-2] if len(hist) >= 2 else last
+                chg   = (last['Close'] - prev['Close']) / prev['Close'] * 100
+
+                ma5  = close.rolling(5).mean().iloc[-1]  if len(close) >= 5  else None
+                ma10 = close.rolling(10).mean().iloc[-1] if len(close) >= 10 else None
+                ma20 = close.rolling(20).mean().iloc[-1] if len(close) >= 20 else None
+
+                rsi_str = 'N/A'
+                if len(close) >= 15:
+                    delta = close.diff()
+                    gain  = delta.clip(lower=0).rolling(14).mean().iloc[-1]
+                    loss  = (-delta.clip(upper=0)).rolling(14).mean().iloc[-1]
+                    if loss and loss != 0:
+                        rsi_str = f'{100 - 100 / (1 + gain / loss):.0f}'
+
+                trend = ('多頭排列' if ma5 and ma20 and ma5 > ma20
+                         else '空頭排列' if ma5 and ma20 and ma5 < ma20
+                         else '均線糾結')
+
+                ma_parts = [f'MA5={ma5:.1f}' if ma5 else '',
+                            f'MA10={ma10:.1f}' if ma10 else '',
+                            f'MA20={ma20:.1f}' if ma20 else '']
+                lines.append(
+                    f'\n{name}({ticker.replace(".TW","")})：'
+                    f'收{last["Close"]:.1f}元（{chg:+.1f}%）'
+                    f' {" ".join(p for p in ma_parts if p)}'
+                    f' RSI={rsi_str} 趨勢:{trend}'
+                )
+            except Exception as e:
+                logger.warning(f'無法取得 {name} 數據: {e}')
+
+        return '\n'.join(lines)
+
+    def _parse_taiwan(self, raw: str) -> Dict:
+        """解析台股分析三個區塊"""
+        raw_upper = raw.upper()
+        mapping = {
+            'index_summary':  ('<<<TAIWAN_INDEX_START>>>',      '<<<TAIWAN_INDEX_END>>>'),
+            'top10_analysis': ('<<<TAIWAN_TOP10_START>>>',      '<<<TAIWAN_TOP10_END>>>'),
+            'prediction':     ('<<<TAIWAN_PREDICTION_START>>>', '<<<TAIWAN_PREDICTION_END>>>'),
+        }
+        result: Dict = {}
+        for key, (s_tag, e_tag) in mapping.items():
+            s = raw_upper.find(s_tag)
+            e = raw_upper.find(e_tag)
+            result[key] = raw[s + len(s_tag): e].strip() if s >= 0 and e > s else ''
+        return result
 
     def _parse_sectors(self, raw: str) -> Dict:
         """用 <<<TAG_START>>> / <<<TAG_END>>> 分隔符解析四大板塊"""

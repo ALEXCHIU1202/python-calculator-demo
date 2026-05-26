@@ -68,13 +68,34 @@ class EmailSender:
     def _plain(self, date_str: str, stats: Dict, report: Dict) -> str:
         sep = '─' * 50
         influencers = report.get('influencers', [])
-        infl_text = '\n'.join(
-            f"  {r.get('person','－')}   {r.get('statement','')}"
-            for r in influencers
-        ) or '  （無重大發言）'
+        infl_lines = []
+        for r in influencers:
+            person = r.get('person', '－')
+            stmt   = r.get('statement', '')
+            impact = r.get('taiwan_impact', '')
+            infl_lines.append(f"  {person}   {stmt}")
+            if impact:
+                infl_lines.append(f"    └ 台股影響：{impact}")
+        infl_text = '\n'.join(infl_lines) or '  （無重大發言）'
+
+        tw = report.get('taiwan_stocks', {})
+        tw_index  = tw.get('index_summary', '')
+        tw_top10  = tw.get('top10_analysis', '')
+        tw_pred   = tw.get('prediction', '')
 
         def sec(title, content):
             return f"\n【{title}】\n{content or '（分析暫時無法取得）'}\n"
+
+        taiwan_section = ''
+        if tw_index or tw_top10 or tw_pred:
+            taiwan_section = (
+                f"\n{'─'*50}\n"
+                f"🇹🇼 台股技術分析\n"
+                f"{sep}\n"
+                + (f"▌ 昨日指數表現\n{tw_index}\n\n" if tw_index else '')
+                + (f"▌ 前十大科技股 K 線\n{tw_top10}\n\n" if tw_top10 else '')
+                + (f"▌ 今日走勢預測\n{tw_pred}\n" if tw_pred else '')
+            )
 
         return (
             f"台股開盤前情勢日報\n"
@@ -83,7 +104,8 @@ class EmailSender:
             f"多頭：{stats.get('bullish',0)}  空頭：{stats.get('bearish',0)}  中性：{stats.get('neutral',0)}\n"
             f"{sep}\n\n"
             f"⚡ 重量級人物發言速報\n"
-            f"{infl_text}\n\n"
+            f"{infl_text}\n"
+            f"{taiwan_section}"
             f"{sep}"
             f"{sec('💻 科技股分析（主要焦點）', report.get('tech',''))}"
             f"{sep}"
@@ -94,7 +116,7 @@ class EmailSender:
             f"{sec('💰 財經金融分析', report.get('finance',''))}"
             f"{sep}\n"
             f"詳細圖表報告請開啟附件 HTML 檔案。\n"
-            f"本報告由 Google Gemini AI 自動生成，僅供參考，不構成投資建議。\n"
+            f"本報告由 AI 自動生成，僅供參考，不構成投資建議。\n"
         )
 
     # ── HTML 版 ───────────────────────────────────────────────────────────────
@@ -116,11 +138,14 @@ class EmailSender:
         # 影響力人物發言列表
         influencers_html = self._render_influencers(report.get('influencers', []))
 
+        # 台股技術分析
+        taiwan_stocks_html = self._render_taiwan_stocks(report.get('taiwan_stocks', {}))
+
         # 四大板塊分析
-        tech_html       = self._render_text(report.get('tech', ''))
+        tech_html        = self._render_text(report.get('tech', ''))
         traditional_html = self._render_text(report.get('traditional', ''))
-        biotech_html    = self._render_text(report.get('biotech', ''))
-        finance_html    = self._render_text(report.get('finance', ''))
+        biotech_html     = self._render_text(report.get('biotech', ''))
+        finance_html     = self._render_text(report.get('finance', ''))
 
         bar_bull = int(bull / total_sent * 100)
         bar_bear = int(bear / total_sent * 100)
@@ -157,7 +182,7 @@ class EmailSender:
       <div style="display:inline-block;margin-top:10px;padding:3px 14px;
                   background:rgba(255,255,255,.1);border-radius:100px;
                   font-size:11px;color:rgba(180,210,255,.85);">
-        ⚡ 由 Google Gemini AI 自動分析
+        ⚡ 由 Groq AI 自動分析
       </div>
     </div>
   </td></tr>
@@ -199,6 +224,14 @@ class EmailSender:
     </div>
     <div style="height:1px;background:linear-gradient(90deg,transparent,#334155,transparent);margin:10px 0;"></div>
   </td></tr>
+
+  <!-- ▌ 分隔線 -->
+  <tr><td style="padding:0;">
+    <div style="height:4px;background:linear-gradient(90deg,#0d9488,#0891b2,#0d9488);"></div>
+  </td></tr>
+
+  <!-- ▌ 🇹🇼 台股技術分析 -->
+  {taiwan_stocks_html}
 
   <!-- ▌ 分隔線 -->
   <tr><td style="padding:0;">
@@ -260,7 +293,7 @@ class EmailSender:
         📎 詳細互動圖表報告請開啟附件 HTML 檔案
       </div>
       <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:6px;line-height:1.7;">
-        本報告由 Google Gemini AI 自動分析 {stats.get('total',0)} 篇全球財經新聞生成。<br>
+        本報告由 Groq AI 自動分析 {stats.get('total',0)} 篇全球財經新聞生成。<br>
         僅供參考，不構成任何投資建議，投資有風險，請審慎評估。
       </div>
     </div>
@@ -272,7 +305,7 @@ class EmailSender:
 </body>
 </html>"""
 
-    # ── 輔助：影響力人物列表 ───────────────────────────────────────────────────
+    # ── 輔助：影響力人物列表（含台股影響預測）────────────────────────────────
 
     def _render_influencers(self, influencers: List[Dict]) -> str:
         if not influencers:
@@ -282,21 +315,104 @@ class EmailSender:
         for r in influencers:
             person = r.get('person', '').strip()
             stmt   = r.get('statement', '').strip()
+            impact = r.get('taiwan_impact', '').strip()
             if not stmt:
                 continue
             person_cell = (
-                f'<span style="display:inline-block;min-width:80px;'
+                f'<span style="display:inline-block;min-width:85px;'
                 f'font-weight:700;color:#fbbf24;font-size:13px;">{person}</span>'
                 if person else ''
             )
+            impact_row = ''
+            if impact:
+                indent = '85px' if person else '0'
+                impact_row = (
+                    f'<div style="margin-top:3px;padding-left:{indent};'
+                    f'font-size:12px;color:#5eead4;line-height:1.5;">'
+                    f'🇹🇼 台股影響：{impact}'
+                    f'</div>'
+                )
             rows.append(
-                f'<div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06);'
-                f'font-size:13px;color:rgba(230,240,255,.85);line-height:1.5;">'
-                f'{person_cell}'
-                f'<span style="color:rgba(255,255,255,.8);">{stmt}</span>'
+                f'<div style="padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);">'
+                f'  <div style="font-size:13px;color:rgba(230,240,255,.85);line-height:1.5;">'
+                f'    {person_cell}'
+                f'    <span style="color:rgba(255,255,255,.8);">{stmt}</span>'
+                f'  </div>'
+                f'  {impact_row}'
                 f'</div>'
             )
         return '\n'.join(rows) + '<div style="height:8px;"></div>'
+
+    # ── 輔助：台股技術分析區塊 ─────────────────────────────────────────────────
+
+    def _render_taiwan_stocks(self, taiwan: Dict) -> str:
+        index_summary  = taiwan.get('index_summary', '')
+        top10_analysis = taiwan.get('top10_analysis', '')
+        prediction     = taiwan.get('prediction', '')
+
+        # 如果三個區塊都是空的就顯示提示
+        if not index_summary and not top10_analysis and not prediction:
+            no_data = (
+                '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px 0;">'
+                '台股數據暫時無法取得，請稍後再試。'
+                '</p>'
+            )
+            return self._taiwan_block(no_data)
+
+        parts = []
+
+        if index_summary:
+            parts.append(
+                f'<div style="background:rgba(13,148,136,.12);border-left:3px solid #0d9488;'
+                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                f'  <div style="font-size:11px;font-weight:700;color:#0d9488;'
+                f'letter-spacing:1.5px;margin-bottom:6px;">▌ 昨日加權指數表現</div>'
+                f'  {self._render_text_teal(index_summary)}'
+                f'</div>'
+            )
+
+        if top10_analysis:
+            parts.append(
+                f'<div style="margin-bottom:14px;">'
+                f'  <div style="font-size:11px;font-weight:700;color:#0891b2;'
+                f'letter-spacing:1.5px;margin-bottom:8px;padding-left:4px;">▌ 前十大科技股 K 線分析</div>'
+                f'  {self._render_text_teal(top10_analysis)}'
+                f'</div>'
+            )
+
+        if prediction:
+            parts.append(
+                f'<div style="background:rgba(8,145,178,.1);border:1px solid rgba(8,145,178,.3);'
+                f'border-radius:8px;padding:12px 14px;">'
+                f'  <div style="font-size:11px;font-weight:700;color:#38bdf8;'
+                f'letter-spacing:1.5px;margin-bottom:6px;">🔮 今日科技股走勢預測</div>'
+                f'  {self._render_text_teal(prediction)}'
+                f'</div>'
+            )
+
+        return self._taiwan_block('\n'.join(parts))
+
+    def _taiwan_block(self, content_html: str) -> str:
+        return f"""
+  <tr><td style="padding:0;border-top:3px solid #0d9488;">
+    <!-- 台股板塊標題 -->
+    <div style="background:linear-gradient(135deg,#042f2e,#0d9488);padding:12px 36px;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="font-size:15px;font-weight:700;color:#fff;">🇹🇼 台股技術分析</td>
+        <td style="text-align:right;">
+          <span style="font-size:10px;padding:2px 10px;border-radius:100px;
+                       background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);white-space:nowrap;">
+            K線・均線・RSI・走勢預測
+          </span>
+        </td>
+      </tr></table>
+    </div>
+    <!-- 台股板塊內容 -->
+    <div style="background:#f0fdfa;padding:20px 36px 22px;
+                border-left:4px solid #0d9488;">
+      {content_html}
+    </div>
+  </td></tr>"""
 
     # ── 輔助：板塊區塊 ────────────────────────────────────────────────────────
 
@@ -331,6 +447,23 @@ class EmailSender:
       {content_html}
     </div>
   </td></tr>"""
+
+    # ── 輔助：純文字轉 HTML 段落（深色背景用）────────────────────────────────
+
+    def _render_text_teal(self, text: str) -> str:
+        """將純文字轉為 HTML，適用於台股分析區塊（淺色背景）。"""
+        if not text:
+            return '<p style="color:#94a3b8;">（無內容）</p>'
+        parts = []
+        for line in text.split('\n'):
+            s = line.strip()
+            if not s:
+                continue
+            parts.append(
+                f'<p style="font-size:13.5px;color:#134e4a;line-height:1.85;'
+                f'margin:0 0 8px;text-align:justify;">{s}</p>'
+            )
+        return '\n'.join(parts) if parts else '<p style="color:#94a3b8;">（無內容）</p>'
 
     # ── 輔助：純文字轉 HTML 段落 ───────────────────────────────────────────────
 
