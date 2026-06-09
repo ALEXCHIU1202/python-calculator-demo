@@ -1,0 +1,25 @@
+{
+  "accounts": [
+    {
+      "id": "acc_001",
+      "name": "Paper 帳戶（填入你的名稱）",
+      "api_key":    "YOUR_ALPACA_API_KEY",
+      "api_secret": "YOUR_ALPACA_API_SECRET",
+      "base_url": "https://paper-api.alpaca.markets",
+      "active_strategy": "top10_nasdaq",
+      "email": "your@email.com",
+      "enabled": true
+    }
+  ],
+  "watchlist": {
+    "科技股": ["AAPL", "MSFT", "NVDA", "GOOGL", "META"],
+    "ETF":   ["QQQ",  "SPY",  "VGT",  "ARKK",  "XLK"],
+    "生技股": ["MRNA", "BNTX", "GILD", "AMGN",  "BIIB"]
+  },
+  "email_config": {
+    "smtp_host": "smtp.gmail.com",
+    "smtp_port": 587,
+    "sender":    "your_email@gmail.com",
+    "password_env": "EMAIL_PASSWORD"
+  }
+}
