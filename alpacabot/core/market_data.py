@@ -96,6 +96,12 @@ def predict_next_day(df: pd.DataFrame) -> float:
     signal += momentum * 0.1
     return round(max(-5.0, min(5.0, signal)), 2)
 
+def _to_history_records(df) -> list:
+    """DataFrame → list[dict]，日期轉為字串，避免 Timestamp JSON 序列化錯誤"""
+    d = df[["Date", "Close"]].rename(columns={"Date": "date", "Close": "close"}).copy()
+    d["date"] = d["date"].astype(str).str[:10]
+    return d.to_dict("records")
+
 def get_benchmark_returns(days: int = 60) -> dict:
     try:
         qqq  = get_price_history("QQQ",  days)
@@ -107,8 +113,8 @@ def get_benchmark_returns(days: int = 60) -> dict:
             "sp500_1d":   pct_change(spy, 1),
             "sp500_1w":   pct_change(spy, 5),
             "sp500_1m":   pct_change(spy, 21),
-            "qqq_history": qqq[["Date","Close"]].rename(columns={"Date":"date","Close":"close"}).to_dict("records"),
-            "spy_history": spy[["Date","Close"]].rename(columns={"Date":"date","Close":"close"}).to_dict("records"),
+            "qqq_history": _to_history_records(qqq),
+            "spy_history": _to_history_records(spy),
         }
     except Exception as e:
         return {"error": str(e)}

@@ -13,10 +13,13 @@ from core.alpaca_client   import load_accounts
 def _get_email_cfg():
     cfg  = load_accounts()
     ecfg = cfg.get("email_config", {})
+    # EMAIL_SENDER 環境變數優先（GitHub Actions Secret），否則用 JSON 設定
+    sender = (os.environ.get("EMAIL_SENDER", "")
+              or ecfg.get("sender", ""))
     return {
         "host":     ecfg.get("smtp_host", "smtp.gmail.com"),
         "port":     ecfg.get("smtp_port", 587),
-        "sender":   ecfg.get("sender", ""),
+        "sender":   sender,
         "password": os.environ.get(ecfg.get("password_env", "EMAIL_PASSWORD"), ""),
     }
 
