@@ -105,6 +105,9 @@ def should_rebalance(account: AlpacaAccount, strategy: dict) -> tuple[bool, str]
     triggers = strategy["rules"].get("rebalance_triggers", [])
     today    = datetime.now()
 
+    if "daily" in triggers:
+        return True, "每日交易策略"
+
     if "monthly_first_day" in triggers and today.day == 1:
         return True, "每月初再平衡"
 

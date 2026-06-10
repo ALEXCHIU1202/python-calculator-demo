@@ -9,7 +9,7 @@
     "weight_per_stock": 0.10,
     "order_type": "market",
     "fractional_shares": false,
-    "rebalance_triggers": ["monthly_first_day", "new_cash_inflow"],
+    "rebalance_triggers": ["daily", "monthly_first_day", "new_cash_inflow"],
     "new_cash_threshold_pct": 0.05,
     "min_cash_reserve": 0.02
   },
