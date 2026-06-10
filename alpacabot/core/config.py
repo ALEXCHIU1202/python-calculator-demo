@@ -39,9 +39,9 @@ def load_config() -> dict:
     統一設定入口，自動選擇可用的設定來源。
     回傳與 accounts.json 相同結構的 dict。
     """
-    # 1. Streamlit Cloud Secrets
+    # 1. Streamlit Cloud Secrets（格式：[account_1], [account_2]...）
     secrets = _load_streamlit_secrets()
-    if secrets.get("accounts"):
+    if secrets and any(k.startswith("account") for k in secrets):
         return _build_config_from_secrets(secrets)
 
     # 2. 環境變數 ACCOUNTS_JSON
