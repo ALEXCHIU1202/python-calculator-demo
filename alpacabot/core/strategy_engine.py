@@ -64,10 +64,12 @@ def execute_rebalance(account: AlpacaAccount, strategy: dict) -> list[dict]:
     if not account.is_market_open():
         print(f"[{account.name}] 市場未開盤，跳過下單")
         return []
-    symbols  = get_target_symbols(strategy)
-    targets  = calc_target_positions(account, strategy, symbols)
-    current  = {p["symbol"]: p["qty"] for p in account.get_positions()}
-    orders   = []
+    symbols    = get_target_symbols(strategy)
+    targets    = calc_target_positions(account, strategy, symbols)
+    positions  = account.get_positions()
+    current    = {p["symbol"]: p["qty"] for p in positions}
+    cost_map   = {p["symbol"]: p["avg_cost"] for p in positions}
+    orders     = []
     target_map = {t["symbol"]: t for t in targets}
 
     # 賣出不在目標清單的持倉
@@ -75,7 +77,13 @@ def execute_rebalance(account: AlpacaAccount, strategy: dict) -> list[dict]:
         if sym not in target_map:
             print(f"  🔴 賣出 {sym} x {int(qty)}")
             try:
+                price = account.get_latest_price(sym)
                 o = account.place_market_order(sym, int(qty), "sell")
+                avg_cost = cost_map.get(sym, price)
+                pnl      = (price - avg_cost) * int(qty)
+                pnl_pct  = (price - avg_cost) / avg_cost * 100 if avg_cost else 0
+                o.update({"price": price, "amount": price * int(qty),
+                          "pnl": round(pnl, 2), "pnl_pct": round(pnl_pct, 2)})
                 orders.append(o)
             except Exception as e:
                 print(f"  ❌ 賣出 {sym} 失敗: {e}")
@@ -84,18 +92,25 @@ def execute_rebalance(account: AlpacaAccount, strategy: dict) -> list[dict]:
     for t in targets:
         sym, target_qty = t["symbol"], t["target_qty"]
         current_qty = int(current.get(sym, 0))
-        diff = target_qty - current_qty
+        diff  = target_qty - current_qty
+        price = t.get("price", 0)
         if diff > 0:
             print(f"  🟢 買入 {sym} x {diff}")
             try:
                 o = account.place_market_order(sym, diff, "buy")
+                o.update({"price": price, "amount": price * diff, "pnl": None, "pnl_pct": None})
                 orders.append(o)
             except Exception as e:
                 print(f"  ❌ 買入 {sym} 失敗: {e}")
         elif diff < 0:
             print(f"  🔴 減持 {sym} x {abs(diff)}")
             try:
+                avg_cost = cost_map.get(sym, price)
+                pnl      = (price - avg_cost) * abs(diff)
+                pnl_pct  = (price - avg_cost) / avg_cost * 100 if avg_cost else 0
                 o = account.place_market_order(sym, abs(diff), "sell")
+                o.update({"price": price, "amount": price * abs(diff),
+                          "pnl": round(pnl, 2), "pnl_pct": round(pnl_pct, 2)})
                 orders.append(o)
             except Exception as e:
                 print(f"  ❌ 減持 {sym} 失敗: {e}")
@@ -133,6 +148,11 @@ def run_daily(mode: str = "daily"):
         try:
             strategy = load_strategy(acc.active_strategy)
             print(f"   策略: {strategy['name']}")
+
+            # 交易前帳戶狀態
+            before_val  = acc.get_portfolio_value()
+            before_cash = acc.get_cash()
+
             do_rebalance, reason = should_rebalance(acc, strategy)
             if do_rebalance or mode == "force":
                 print(f"   ♻️  觸發再平衡: {reason or '手動'}")
@@ -140,12 +160,53 @@ def run_daily(mode: str = "daily"):
             else:
                 print("   ⏭️  今日不需再平衡")
                 orders = []
+
+            # 交易後帳戶狀態
+            after_val  = acc.get_portfolio_value()
+            after_cash = acc.get_cash()
+
+            # 發送交易摘要 Email
+            _send_trade_summary_email(acc, orders, before_val, before_cash, after_val, after_cash)
+
             all_results.append({"account_id": acc.id, "orders": orders, "success": True})
         except Exception as e:
             print(f"   ❌ 帳戶執行失敗: {e}")
             all_results.append({"account_id": acc.id, "error": str(e), "success": False})
 
     return all_results
+
+def _send_trade_summary_email(acc, orders, before_val, before_cash, after_val, after_cash):
+    """交易完成後發送摘要 Email"""
+    try:
+        from notifications.email_sender import send_email
+        from report.report_view         import render_trade_summary_email
+        from core.alpaca_client         import load_accounts
+
+        email = acc.email
+        if not email:
+            cfg_accounts = load_accounts().get("accounts", [])
+            for a in cfg_accounts:
+                if a["id"] == acc.id:
+                    email = a.get("email", "")
+        if not email:
+            print(f"   ⚠️ 帳戶 {acc.name} 未設定 Email，跳過交易通知")
+            return
+
+        summary = {
+            "account_name": acc.name,
+            "trade_date":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "orders":       orders,
+            "account_before": {"portfolio_value": before_val, "cash": before_cash},
+            "account_after":  {"portfolio_value": after_val,  "cash": after_cash},
+        }
+        html    = render_trade_summary_email(summary)
+        count   = len(orders)
+        subject = (f"🤖 AlpacaBot 交易通知 | {acc.name} | "
+                   f"今日執行 {count} 筆 | 帳戶總值 ${after_val:,.0f}")
+        send_email(email, subject, html)
+        print(f"   ✅ 交易摘要 Email 已發送至 {email}")
+    except Exception as e:
+        print(f"   ⚠️ 交易摘要 Email 發送失敗: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
