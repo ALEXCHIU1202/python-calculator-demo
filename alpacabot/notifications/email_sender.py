@@ -16,11 +16,17 @@ def _get_email_cfg():
     # EMAIL_SENDER 環境變數優先（GitHub Actions Secret），否則用 JSON 設定
     sender = (os.environ.get("EMAIL_SENDER", "")
               or ecfg.get("sender", ""))
+    # 密碼：先查 password_env 指定的 key，再直接查 EMAIL_PASSWORD
+    pw_key   = ecfg.get("password_env", "EMAIL_PASSWORD")
+    password = os.environ.get(pw_key, "") or os.environ.get("EMAIL_PASSWORD", "")
+    if not password:
+        print(f"  ⚠️ 找不到 Email 密碼（已查: {pw_key}, EMAIL_PASSWORD）")
+        print(f"  ℹ️ 請在 GitHub → Settings → Secrets → Actions 設定 EMAIL_PASSWORD")
     return {
         "host":     ecfg.get("smtp_host", "smtp.gmail.com"),
         "port":     ecfg.get("smtp_port", 587),
         "sender":   sender,
-        "password": os.environ.get(ecfg.get("password_env", "EMAIL_PASSWORD"), ""),
+        "password": password,
     }
 
 def send_email(to: str, subject: str, html_body: str):
