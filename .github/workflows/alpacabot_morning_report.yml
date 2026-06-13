@@ -1,0 +1,59 @@
+name: 📊 AlpacaBot — 每日早報 Email（6:30 AM 台灣時間）
+
+on:
+  schedule:
+    # UTC 22:30（週日至週四）= 台灣時間週一至週五早上 6:30
+    - cron: '30 22 * * 0-4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-morning-report:
+    name: 生成帳戶報告 → 發送早報 Email
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      ACCOUNTS_JSON:  ${{ secrets.ACCOUNTS_JSON }}
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      EMAIL_SENDER:   ${{ secrets.EMAIL_SENDER }}
+
+    steps:
+      - name: ① 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: ② 設定 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: alpacabot/requirements.txt
+
+      - name: ③ 安裝套件
+        run: pip install -r alpacabot/requirements.txt
+
+      - name: ④ 確認設定
+        run: |
+          python -c "
+          import os, json
+          raw = os.environ.get('ACCOUNTS_JSON', '')
+          if not raw:
+              print('❌ ACCOUNTS_JSON Secret 未設定！')
+              exit(1)
+          cfg = json.loads(raw)
+          accs = cfg.get('accounts', [])
+          print(f'✅ 帳戶數量: {len(accs)}')
+          for a in accs:
+              print(f'   - {a[\"name\"]} ({a[\"id\"]})')
+          print('EMAIL_SENDER:', 'OK' if os.environ.get('EMAIL_SENDER') else 'MISSING')
+          "
+
+      - name: ⑤ 生成日報 JSON
+        working-directory: alpacabot
+        run: python -m report.report_model
+
+      - name: ⑥ 發送早報 Email
+        working-directory: alpacabot
+        run: python -m notifications.email_sender
